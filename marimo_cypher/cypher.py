@@ -13,6 +13,7 @@ def cypher(
     output: bool = True,
     output_type: Literal["dataframe", "visualization"] = "dataframe",
     engine: Optional["neo4j.Driver | neo4j.Session"] = None,
+    parameters: Optional[dict] = None,
 ) -> Any:
     """
     Execute a Cypher query against a Neo4j database.
@@ -38,7 +39,7 @@ def cypher(
     if output_type == "visualization":
         from neo4j_viz.neo4j import from_neo4j
 
-        raw_result = neo4j_engine.execute_raw(query)
+        raw_result = neo4j_engine.execute_raw(query, parameters)
         vg = from_neo4j(raw_result)
 
         if output:
@@ -46,7 +47,7 @@ def cypher(
 
         return vg
 
-    df = neo4j_engine.execute(query)
+    df = neo4j_engine.execute(query, parameters)
 
     if df is None:
         return None

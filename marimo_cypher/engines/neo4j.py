@@ -38,14 +38,15 @@ class Neo4jEngine(QueryEngine["neo4j.Driver | neo4j.Session"]):
         except ImportError:
             return False
 
-    def execute(self, query: str) -> Any:
+    def execute(self, query: str, parameters: Optional[dict] = None) -> Any:
         import neo4j
 
+        params = parameters or {}
         connection = self._connection
         if isinstance(connection, neo4j.Driver):
-            records, _, keys = connection.execute_query(query)
+            records, _, keys = connection.execute_query(query, parameters_=params)
         elif isinstance(connection, neo4j.Session):
-            result = connection.run(query)
+            result = connection.run(query, params)
             keys = result.keys()
             records = list(result)
         else:
@@ -65,16 +66,17 @@ class Neo4jEngine(QueryEngine["neo4j.Driver | neo4j.Session"]):
             except Exception:
                 return rows
 
-    def execute_raw(self, query: str) -> Any:
+    def execute_raw(self, query: str, parameters: Optional[dict] = None) -> Any:
         """Execute a query and return raw neo4j result for graph visualization."""
         import neo4j
 
+        params = parameters or {}
         connection = self._connection
         if isinstance(connection, neo4j.Driver):
             session = connection.session()
-            return session.run(query)
+            return session.run(query, params)
         elif isinstance(connection, neo4j.Session):
-            return connection.run(query)
+            return connection.run(query, params)
         else:
             raise TypeError(
                 f"Unsupported Neo4j connection type: {type(connection)}"
