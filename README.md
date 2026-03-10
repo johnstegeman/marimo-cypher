@@ -8,6 +8,23 @@ A [marimo](https://marimo.io) plugin that adds a Cypher cell type and Neo4j data
 pip install marimo-cypher
 ```
 
+## Building from source
+
+The plugin ships a prebuilt JavaScript bundle. To build from source (e.g. for development or packaging):
+
+1. Build the frontend (required before building the wheel):
+
+   ```bash
+   cd frontend && npm install && npm run build
+   ```
+
+2. Install the package in editable mode or build a wheel:
+
+   ```bash
+   pip install -e .
+   # or: pip build .  then install the resulting wheel
+   ```
+
 ## Usage
 
 ### Connecting to Neo4j

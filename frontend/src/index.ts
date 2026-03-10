@@ -3,11 +3,12 @@ import { CypherPanel } from "./panel";
 import { CypherParser } from "./parser";
 import { Neo4jConnectionForm } from "./neo4j-connection-form";
 
+const cypherParser = new CypherParser();
 const cellPluginRegistration = {
   type: "cypher",
   name: "Neo4j Cypher",
-  languageAdapter: new CypherLanguageAdapter(),
-  parser: new CypherParser(),
+  languageAdapter: new CypherLanguageAdapter(cypherParser),
+  parser: cypherParser,
   panel: CypherPanel,
 };
 
@@ -18,13 +19,14 @@ const connectionPluginRegistration = {
   form: Neo4jConnectionForm,
 };
 
+const isDev = typeof import.meta !== "undefined" && import.meta.env?.DEV === true;
+
 if (typeof window !== "undefined") {
-  console.log("[marimo-cypher] plugin script loaded, window.marimo =", window.marimo);
   if (window.marimo?.registerCellPlugin) {
     // @ts-expect-error
     window.marimo.registerCellPlugin(cellPluginRegistration);
-    console.log("[marimo-cypher] cell plugin registered successfully");
-  } else {
+    if (isDev) console.log("[marimo-cypher] cell plugin registered");
+  } else if (isDev) {
     console.warn("[marimo-cypher] window.marimo.registerCellPlugin not found");
   }
 
@@ -32,8 +34,8 @@ if (typeof window !== "undefined") {
   if (window.marimo?.registerConnectionPlugin) {
     // @ts-expect-error
     window.marimo.registerConnectionPlugin(connectionPluginRegistration);
-    console.log("[marimo-cypher] connection plugin registered successfully");
-  } else {
+    if (isDev) console.log("[marimo-cypher] connection plugin registered");
+  } else if (isDev) {
     console.warn("[marimo-cypher] window.marimo.registerConnectionPlugin not found");
   }
 }

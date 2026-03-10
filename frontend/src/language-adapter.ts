@@ -29,8 +29,12 @@ interface LanguageAdapter<T> {
 }
 
 export class CypherLanguageAdapter implements LanguageAdapter<CypherMetadata> {
-  private parser = new CypherParser();
+  private readonly parser: CypherParser;
   readonly type = "cypher";
+
+  constructor(parser?: CypherParser) {
+    this.parser = parser ?? new CypherParser();
+  }
 
   get defaultMetadata(): CypherMetadata {
     return { ...this.parser.defaultMetadata };

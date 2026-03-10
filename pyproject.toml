@@ -22,3 +22,6 @@ cypher = "marimo_cypher.plugin:cypher_plugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["marimo_cypher"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"frontend/dist/index.js" = "marimo_cypher/static/index.js"

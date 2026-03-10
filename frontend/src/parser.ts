@@ -3,11 +3,26 @@ import dedent from "string-dedent";
 
 export type CypherOutputType = "dataframe" | "visualization";
 
+export interface VizConfig {
+  nodeCaptionProperty?: string;
+  nodeColorMode?: "label" | "property";
+  nodeColorProperty?: string;
+  nodeColorContinuous?: string;  // "true" | "false"
+  nodeSizeProperty?: string;
+  relColorMode?: "type" | "property";
+  relColorProperty?: string;
+  relColorContinuous?: string;
+  relWidthProperty?: string;
+  nodeColors?: Record<string, string>;  // label → hex, set per-label
+  relColors?: Record<string, string>;   // type  → hex, set per-type
+}
+
 export interface CypherMetadata {
   dataframeName: string;
   engine: string;
   showOutput: boolean;
   outputType: CypherOutputType;
+  vizConfig: VizConfig;
 }
 
 const IMPORT_ALIAS = "_marimo_cypher_plugin_";
@@ -79,6 +94,7 @@ export class CypherParser implements LanguageParser<CypherMetadata> {
     engine: "",
     showOutput: true,
     outputType: "dataframe",
+    vizConfig: {},
   };
 
   get defaultCode(): string {
@@ -109,6 +125,24 @@ export class CypherParser implements LanguageParser<CypherMetadata> {
         metadata.outputType = "visualization";
       }
 
+      // Match viz_config={...} allowing one level of nested braces for nodeColors/relColors
+      const vizConfigMatch = argsStr.match(/viz_config=\{((?:[^{}]|\{[^{}]*\})*)\}/);
+      if (vizConfigMatch) {
+        const inner = vizConfigMatch[1];
+        // Simple string values: "key": "value" — skip entries whose value starts with {
+        for (const [, key, val] of inner.matchAll(/"([^"]+)":\s*"([^"]*)"/g)) {
+          (metadata.vizConfig as Record<string, unknown>)[key] = val;
+        }
+        // Nested dict values: "key": {"k": "v", ...}
+        for (const [, key, dictInner] of inner.matchAll(/"([^"]+)":\s*\{([^}]*)\}/g)) {
+          const dict: Record<string, string> = {};
+          for (const [, ek, ev] of dictInner.matchAll(/"([^"]+)":\s*"([^"]*)"/g)) {
+            dict[ek] = ev;
+          }
+          (metadata.vizConfig as Record<string, unknown>)[key] = dict;
+        }
+      }
+
       // Parse parameters and reconstruct comment header for non-trivial bindings
       const parameters = parseParametersFromArgs(argsStr);
       const overrides = Object.entries(parameters).filter(([k, v]) => v !== k);
@@ -134,7 +168,7 @@ export class CypherParser implements LanguageParser<CypherMetadata> {
   }
 
   transformOut(code: string, metadata: CypherMetadata): FormatResult {
-    const { showOutput, engine, dataframeName, outputType } = metadata;
+    const { showOutput, engine, dataframeName, outputType, vizConfig } = metadata;
 
     // Parse explicit bindings from optional comment header
     const lines = code.split("\n");
@@ -168,6 +202,27 @@ export class CypherParser implements LanguageParser<CypherMetadata> {
       outputType === "visualization" ? ',\n    output_type="visualization"' : "";
     const engineParam = engine ? `,\n    engine=${engine}` : "";
 
+    const outputVarParam = outputType === "visualization"
+      ? `,\n    _output_var="${dataframeName}"`
+      : "";
+
+    let vizConfigParam = "";
+    if (outputType === "visualization" && vizConfig) {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(vizConfig) as [string, string | Record<string, string> | undefined][]) {
+        if (v === undefined) continue;
+        if (typeof v === "object") {
+          const inner = Object.entries(v).map(([ek, ev]) => `"${ek}": "${ev}"`).join(", ");
+          if (inner) parts.push(`"${k}": {${inner}}`);
+        } else if (v !== "") {
+          parts.push(`"${k}": "${v}"`);
+        }
+      }
+      if (parts.length > 0) {
+        vizConfigParam = `,\n    viz_config={${parts.join(", ")}}`;
+      }
+    }
+
     let parametersParam = "";
     if (Object.keys(allBindings).length > 0) {
       const entries = Object.entries(allBindings)
@@ -176,7 +231,7 @@ export class CypherParser implements LanguageParser<CypherMetadata> {
       parametersParam = `,\n    parameters={${entries}}`;
     }
 
-    const end = `\n    """${showOutputParam}${outputTypeParam}${engineParam}${parametersParam}\n)`;
+    const end = `\n    """${showOutputParam}${outputTypeParam}${engineParam}${parametersParam}${outputVarParam}${vizConfigParam}\n)`;
     const assignment =
       assignStart +
       escapedCode
